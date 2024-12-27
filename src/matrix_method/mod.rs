@@ -1,4 +1,5 @@
 pub mod pressure_field;
+use ndarray::Array2;
 use static_assertions::const_assert;
 
 use num_complex::Complex;
@@ -11,7 +12,7 @@ const MM: f64 = 1e-3;
 // Grid dimensions
 pub const X_MIN: f64 = -50.0 * MM;
 pub const X_MAX: f64 = 50.0 * MM;
-pub const Z_MIN: f64 = 0.0; // Location of the reflector
+pub const Z_MIN: f64 = 0.0 * MM; // Location of the reflector
 pub const Z_MAX: f64 = 50.0 * MM; // Location of the transducer
 const DISC: f64 = 0.50 * MM; // Discretization step size
 
@@ -41,3 +42,12 @@ const OMEGA: Complex<f64> = Complex::new(2.0 * PI * FREQ.re, 0.0); // Angular fr
 const WAVENUMBER: Complex<f64> = Complex::new(OMEGA.re / C.re, 0.0); // Wavenumber - k
 const E: Complex<f64> = Complex::new(0.0, 1.0 / WAVELENGTH.re); // Constant used for reflected waves
 const D: Complex<f64> = Complex::new((OMEGA.re * RHO.re * C.re) / WAVELENGTH.re, 0.0); // Constant used for transmitted wave
+
+/* HELPERS */
+fn multiple_matrix_product(matrices: Vec<&Array2<Complex<f64>>>) -> Array2<Complex<f64>> {
+    let mut prod = matrices[0].to_owned();
+    for matrix in matrices.into_iter().skip(1) {
+        prod = prod.dot(matrix);
+    }
+    prod
+}

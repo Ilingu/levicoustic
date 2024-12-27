@@ -1,7 +1,7 @@
 use std::fs;
 
 use image::{GenericImageView, ImageReader, RgbaImage};
-use ndarray::Array2;
+use ndarray::{Array1, Array2};
 use num_complex::Complex;
 use plotters::prelude::*;
 
@@ -101,9 +101,16 @@ fn draw_color_map(pressure: &Array2<Complex<f64>>) -> Result<(), Box<dyn std::er
         .y_desc("Acoustic pressure (Pa)")
         .draw()?;
 
-    chart.draw_series((minlvl as isize..maxlvl as isize).map(|y| {
+    let rect_points = Array1::linspace(minlvl, maxlvl, 1000);
+    chart.draw_series(rect_points.iter().enumerate().map(|(i, &y)| {
         Rectangle::new(
-            [(0.0, y as f32), (0.5, y as f32 + 1.0)],
+            [
+                (0.0, y as f32),
+                (
+                    0.5,
+                    rect_points[if i == rect_points.len() - 1 { i } else { i + 1 }] as f32,
+                ),
+            ],
             VulcanoHSL
                 .get_color_normalized(y as f32, minlvl as f32, maxlvl as f32)
                 .filled(),

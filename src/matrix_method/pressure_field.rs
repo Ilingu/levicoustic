@@ -1,4 +1,4 @@
-use ndarray::{Array, Array1, Array2};
+use ndarray::{Array1, Array2};
 
 use super::*;
 
@@ -8,16 +8,18 @@ const L: usize = ((X_MAX - X_MIN) / DISC) as usize;
 const Z: usize = ((Z_MAX - Z_MIN) / DISC) as usize;
 const M: usize = L * Z;
 
-pub fn compute_pressure_field() -> Array2<Complex<f64>> {
+/// compute the pressure field for each points.
+/// The greater the number of reflections, the more precise the result will be. However it comes at a computational cost
+pub fn compute_pressure_field(nb_of_reflection: u8) -> Array2<Complex<f64>> {
     // Creation of grid, indices, and distance arrays
-    let x: Array1<f64> = Array::linspace(X_MIN, X_MAX, L);
-    let z: Array1<f64> = Array::linspace(Z_MIN, Z_MAX, Z);
-    let transducer: Array1<f64> = Array::linspace(-R, R, N);
+    let x: Array1<f64> = Array1::linspace(X_MIN, X_MAX, L);
+    let z: Array1<f64> = Array1::linspace(Z_MIN, Z_MAX, Z);
+    let transducer: Array1<f64> = Array1::linspace(-R, R, N);
 
     // Create zeroed distance arrays in memory
-    let mut r_nm: Array2<f64> = Array::zeros((N, M));
-    let mut r_im: Array2<f64> = Array::zeros((L, M));
-    let mut r_in: Array2<f64> = Array::zeros((N, L));
+    let mut r_nm: Array2<f64> = Array2::zeros((N, M));
+    let mut r_im: Array2<f64> = Array2::zeros((L, M));
+    let mut r_in: Array2<f64> = Array2::zeros((N, L));
 
     // Calculate distance array r_nm
     for i in 0..N {
@@ -92,10 +94,10 @@ pub fn compute_pressure_field() -> Array2<Complex<f64>> {
     }
 
     // Rotation for column notation
-    let t_tm = t_tm.t();
-    let t_tr = t_tr.t();
-    let t_rt = t_rt.t();
-    let t_rm = t_rm.t();
+    let t_tm = t_tm.t().to_owned();
+    let t_tr = t_tr.t().to_owned();
+    let t_rt = t_rt.t().to_owned();
+    let t_rm = t_rm.t().to_owned();
 
     // Boundary conditions of transducer
     #[allow(non_snake_case)]
@@ -105,15 +107,34 @@ pub fn compute_pressure_field() -> Array2<Complex<f64>> {
     }
 
     // Calculation of pressure, where each line is an order of approximation
-    let pressure_base = D * t_tm.dot(&U)
-        + (D * E) * (t_rm.dot(&t_tr)).dot(&U)
-        + (D * E.powi(2)) * (t_tm.dot(&t_rt)).dot(&(t_tr.dot(&U)))
-        + (D * E.powi(3)) * t_rm.dot(&((t_tr.dot(&t_rt)).dot(&(t_tr.dot(&U)))))
-        + (D * E.powi(4)) * (t_tm.dot(&t_rt)).dot(&((t_tr.dot(&t_rt)).dot(&(t_tr.dot(&U)))));
+    let mut pressure_base = D * t_tm.dot(&U);
+    for n in 1..=nb_of_reflection {
+        pressure_base = pressure_base
+            + (D * E.powu(n as u32)) * nth_reflection(n, [&t_tm, &t_tr, &t_rt, &t_rm, &U]);
+    }
 
     pressure_base
         .into_shape_with_order((L, Z))
         .expect("Failed to reshape pressure field")
         .t()
         .to_owned()
+}
+
+fn nth_reflection(n: u8, [tm, tr, rt, rm, u]: [&Array2<Complex<f64>>; 5]) -> Array2<Complex<f64>> {
+    let mut list_of_reflection = Vec::with_capacity(n as usize + 2);
+    list_of_reflection.push(match n % 2 == 0 {
+        true => tm,
+        false => rm,
+    });
+    for i in 1..=n {
+        let r = match (n % 2 == 0, i % 2 == 0) {
+            (true, true) => tr,
+            (true, false) => rt,
+            (false, true) => rt,
+            (false, false) => tr,
+        };
+        list_of_reflection.push(r);
+    }
+    list_of_reflection.push(u);
+    multiple_matrix_product(list_of_reflection)
 }
