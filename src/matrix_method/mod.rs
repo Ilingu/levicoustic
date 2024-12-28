@@ -1,6 +1,5 @@
 pub mod pressure_field;
 use ndarray::Array2;
-use static_assertions::const_assert;
 
 use num_complex::Complex;
 use std::f64::consts::PI;
@@ -9,39 +8,143 @@ use std::f64::consts::PI;
 
 const MM: f64 = 1e-3;
 
-// Grid dimensions
-pub const X_MIN: f64 = -50.0 * MM;
-pub const X_MAX: f64 = 50.0 * MM;
-pub const Z_MIN: f64 = 0.0 * MM; // Location of the reflector
-pub const Z_MAX: f64 = 50.0 * MM; // Location of the transducer
-const DISC: f64 = 0.50 * MM; // Discretization step size
+// Define air constants at 20°C (https://en.wikipedia.org/wiki/Density_of_air)
+// const RHO: Complex<f64> = Complex::new(1.2041, 0.0); // Density of air in Raleigh, kg/m^3
+// const C: Complex<f64> = Complex::new(343.21, 0.0); // Speed of sound in air, m/s
 
-const_assert!(X_MAX > X_MIN);
-const_assert!(Z_MAX > Z_MIN);
-
-// Define air constants
 const RHO: Complex<f64> = Complex::new(1.214, 0.0); // Density of air in Raleigh, kg/m^3
 const C: Complex<f64> = Complex::new(340.1, 0.0); // Speed of sound in air, m/s
 
-// Define transducer parameters
-const R: f64 = 15.0 * MM; // Transducer radius, m
-const TRANSDUCER_AREA: Complex<f64> = Complex::new(PI * R * R, 0.0); // Transducer area, m^2
-const R2: f64 = 2.0 * MM; // Transducer hole, m
-const HOLE_AREA: Complex<f64> = Complex::new(PI * R2 * R2, 0.0); // Transducer hole area, m^2
-const FREQ: Complex<f64> = Complex::new(56000.0, 0.0); // Frequency, Hz
-const U_0: f64 = 0.0000060; // Displacement amplitude, m
+/* Parameters */
 
-const_assert!(R > R2);
+#[derive(Debug, Clone, Copy)]
+pub struct SimulationParametersArgs {
+    // Grid dimensions
+    pub x_min: f64,
+    pub x_max: f64,
+    /// Location of the reflector
+    pub z_min: f64,
+    /// Location of the transducer
+    pub z_max: f64,
 
-// Define reflector parameters
-const REFLECTOR_AREA: Complex<f64> = Complex::new(PI * ((X_MAX * X_MAX) / 4.0), 0.0); // Reflector area, m^2
+    // Simulation accuracy
+    pub nb_of_reflection: u8,
+    /// Discretization step size, m
+    pub disc: f64,
 
-// Constants
-const WAVELENGTH: Complex<f64> = Complex::new(C.re / FREQ.re, 0.0); // Wavelength, m
-const OMEGA: Complex<f64> = Complex::new(2.0 * PI * FREQ.re, 0.0); // Angular frequency, rad/s
-const WAVENUMBER: Complex<f64> = Complex::new(OMEGA.re / C.re, 0.0); // Wavenumber - k
-const E: Complex<f64> = Complex::new(0.0, 1.0 / WAVELENGTH.re); // Constant used for reflected waves
-const D: Complex<f64> = Complex::new((OMEGA.re * RHO.re * C.re) / WAVELENGTH.re, 0.0); // Constant used for transmitted wave
+    // Transducer parameters
+    /// Transducer radius, m
+    pub radius: f64,
+    /// Transducer hole, m
+    pub hole_radius: f64,
+    /// Resonante Frequency, Hz
+    pub freq: Complex<f64>,
+    /// Displacement amplitude, m          
+    pub u_0: f64,
+
+    // plot
+    pub saturation: f64,
+}
+
+impl From<SimulationParametersArgs> for SimulationParameters {
+    fn from(
+        SimulationParametersArgs {
+            x_min,
+            x_max,
+            z_min,
+            z_max,
+            nb_of_reflection,
+            disc,
+            radius,
+            hole_radius,
+            freq,
+            u_0,
+            ..
+        }: SimulationParametersArgs,
+    ) -> Self {
+        let mut sp = Self {
+            x_min,
+            x_max,
+            z_min,
+            z_max,
+            nb_of_reflection,
+            disc,
+            radius,
+            transducer_area: Complex::new(PI * radius * radius, 0.0),
+            hole_radius,
+            hole_area: Complex::new(PI * hole_radius * hole_radius, 0.0),
+            freq,
+            u_0,
+            reflector_area: Complex::new(PI * ((x_max * x_max) / 4.0), 0.0),
+            wavelength: Complex::new(C.re / freq.re, 0.0),
+            omega: Complex::new(2.0 * PI * freq.re, 0.0),
+            // to be computed
+            wavenumber: Complex::ZERO,
+            e: Complex::ZERO,
+            d: Complex::ZERO,
+        };
+        sp.wavenumber = Complex::new(sp.omega.re / C.re, 0.0);
+        sp.e = Complex::new(0.0, 1.0 / sp.wavelength.re);
+        sp.d = Complex::new((sp.omega.re * RHO.re * C.re) / sp.wavelength.re, 0.0);
+        sp
+    }
+}
+
+struct SimulationParameters {
+    // Grid dimensions
+    x_min: f64,
+    x_max: f64,
+    z_min: f64, // Location of the reflector
+    z_max: f64, // Location of the transducer
+
+    // Simulation accuracy
+    nb_of_reflection: u8,
+    disc: f64, // Discretization step size, m
+
+    // Transducer parameters
+    radius: f64,                   // Transducer radius, m
+    transducer_area: Complex<f64>, // Transducer area, m^2
+    hole_radius: f64,              // Transducer hole, m
+    hole_area: Complex<f64>,       // Transducer hole area, m^2
+    freq: Complex<f64>,            // Resonante Frequency, Hz
+    u_0: f64,                      // Displacement amplitude, m
+
+    // Reflector parameters
+    reflector_area: Complex<f64>,
+
+    // Other computed constants
+    wavelength: Complex<f64>, // Wavelength, m
+    omega: Complex<f64>,      // Angular frequency, rad/s
+    wavenumber: Complex<f64>, // Wavenumber - k
+    e: Complex<f64>,          // Constant used for reflected waves
+    d: Complex<f64>,          // Constant used for transmitted wave
+}
+
+/* DEFAULT SIMULATION */
+
+impl Default for SimulationParametersArgs {
+    fn default() -> Self {
+        Self {
+            x_min: -50.0 * MM,
+            x_max: 50.0 * MM,
+            z_min: 0.0 * MM,
+            z_max: 50.0 * MM,
+            nb_of_reflection: 4,
+            disc: 0.5 * MM,
+            radius: 15.0 * MM,
+            hole_radius: 2.0 * MM,
+            freq: Complex::new(56000.0, 0.0),
+            u_0: 0.0000060,
+            saturation: 4.0,
+        }
+    }
+}
+
+impl Default for SimulationParameters {
+    fn default() -> Self {
+        SimulationParametersArgs::default().into()
+    }
+}
 
 /* HELPERS */
 fn multiple_matrix_product(matrices: Vec<&Array2<Complex<f64>>>) -> Array2<Complex<f64>> {

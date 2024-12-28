@@ -5,20 +5,20 @@ use ndarray::{Array1, Array2};
 use num_complex::Complex;
 use plotters::prelude::*;
 
-use crate::matrix_method::{X_MAX, X_MIN, Z_MAX, Z_MIN};
+use crate::matrix_method::SimulationParametersArgs;
 
 pub fn plot_pressure_field(
     pressure: &Array2<Complex<f64>>,
+    simulation_parameters: SimulationParametersArgs,
     path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    draw_pressure_field(pressure)?;
-    draw_color_map(pressure)?;
+    draw_pressure_field(pressure, simulation_parameters)?;
+    draw_color_map(pressure, simulation_parameters.saturation)?;
     post_processing(path)?;
     Ok(())
 }
 
 /* UTILS */
-const SATURATION: f64 = 3.0;
 fn pressure_field_levels(pressure: &Array2<Complex<f64>>, saturation: f64) -> (f64, f64) {
     let min_pressure = pressure.iter().fold(f64::INFINITY, |min, &p| min.min(p.re));
     (min_pressure / saturation, -min_pressure / saturation)
@@ -26,7 +26,19 @@ fn pressure_field_levels(pressure: &Array2<Complex<f64>>, saturation: f64) -> (f
 
 /* HELPERS */
 
-fn draw_pressure_field(pressure: &Array2<Complex<f64>>) -> Result<(), Box<dyn std::error::Error>> {
+fn draw_pressure_field(
+    pressure: &Array2<Complex<f64>>,
+    SimulationParametersArgs {
+        x_min,
+        x_max,
+        z_min,
+        z_max,
+        saturation,
+        nb_of_reflection,
+        disc,
+        ..
+    }: SimulationParametersArgs,
+) -> Result<(), Box<dyn std::error::Error>> {
     let root = BitMapBackend::new("./tmp/pressure_field.png", (600, 600)).into_drawing_area();
     root.fill(&WHITE)?;
 
@@ -34,8 +46,11 @@ fn draw_pressure_field(pressure: &Array2<Complex<f64>>) -> Result<(), Box<dyn st
         .margin(10)
         .x_label_area_size(30)
         .y_label_area_size(50)
-        .caption("Pressure field", ("sans-serif", 20))
-        .build_cartesian_2d(X_MIN..X_MAX, Z_MIN..Z_MAX)?;
+        .caption(
+            format!("Pressure field - {nb_of_reflection} reflections - discretization = {disc}m"),
+            ("sans-serif", 16),
+        )
+        .build_cartesian_2d(x_min..x_max, z_min..z_max)?;
 
     chart
         .configure_mesh()
@@ -53,12 +68,12 @@ fn draw_pressure_field(pressure: &Array2<Complex<f64>>) -> Result<(), Box<dyn st
         _ => panic!(),
     };
 
-    let (minlvl, maxlvl) = pressure_field_levels(pressure, SATURATION);
+    let (minlvl, maxlvl) = pressure_field_levels(pressure, saturation);
     for row_id in 0..ph {
         for col_id in 0..pw {
             let (x, z) = (
-                X_MIN + (col_id as f64) * (X_MAX - X_MIN) / pw as f64,
-                Z_MIN + (row_id as f64) * (Z_MAX - Z_MIN) / ph as f64,
+                x_min + (col_id as f64) * (x_max - x_min) / pw as f64,
+                z_min + (row_id as f64) * (z_max - z_min) / ph as f64,
             );
             let (mut i, mut j) = (
                 (row_id as f64 * rm as f64 / ph as f64).round() as usize,
@@ -83,15 +98,18 @@ fn draw_pressure_field(pressure: &Array2<Complex<f64>>) -> Result<(), Box<dyn st
     Ok(())
 }
 
-fn draw_color_map(pressure: &Array2<Complex<f64>>) -> Result<(), Box<dyn std::error::Error>> {
-    let (minlvl, maxlvl) = pressure_field_levels(pressure, SATURATION);
+fn draw_color_map(
+    pressure: &Array2<Complex<f64>>,
+    saturation: f64,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let (minlvl, maxlvl) = pressure_field_levels(pressure, saturation);
 
     let root = BitMapBackend::new("./tmp/colormap.png", (150, 600)).into_drawing_area();
     root.fill(&WHITE)?;
 
     let mut chart = ChartBuilder::on(&root)
         .margin(10)
-        .y_label_area_size(50)
+        .right_y_label_area_size(50)
         .build_cartesian_2d(0_f32..1.0, minlvl as f32..maxlvl as f32)?;
 
     chart
@@ -105,9 +123,9 @@ fn draw_color_map(pressure: &Array2<Complex<f64>>) -> Result<(), Box<dyn std::er
     chart.draw_series(rect_points.iter().enumerate().map(|(i, &y)| {
         Rectangle::new(
             [
-                (0.0, y as f32),
+                (0.5, y as f32),
                 (
-                    0.5,
+                    1.0,
                     rect_points[if i == rect_points.len() - 1 { i } else { i + 1 }] as f32,
                 ),
             ],
@@ -130,7 +148,7 @@ fn post_processing(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     assert!(cm_img.width() > CROP_BY);
 
     // let pf_img = pf_img.fast_blur(0.3);
-    let cm_img = cm_img.crop_imm(0, 0, cm_img.width() - CROP_BY, cm_img.height());
+    let cm_img = cm_img.crop_imm(CROP_BY, 0, cm_img.width() - CROP_BY, cm_img.height());
 
     let (w1, w2, h) = (pf_img.width(), cm_img.width(), pf_img.height());
     assert_eq!(h, cm_img.height());

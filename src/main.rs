@@ -1,6 +1,6 @@
 use std::fs;
 
-use matrix_method::pressure_field;
+use matrix_method::{pressure_field, SimulationParametersArgs};
 use plot::plot_pressure_field;
 
 mod matrix_method;
@@ -10,6 +10,9 @@ fn main() {
     let _ = fs::create_dir_all("./out");
     let _ = fs::create_dir_all("./tmp");
 
-    let pressure = pressure_field::compute_pressure_field(4);
-    plot_pressure_field(&pressure, "./out/pressure_field.png").expect("Failed to draw pf");
+    let simulation_parameters = SimulationParametersArgs::default();
+
+    let pressure = pressure_field::compute_pressure_field(simulation_parameters);
+    plot_pressure_field(&pressure, simulation_parameters, "./out/pressure_field.png")
+        .expect("Failed to draw pf");
 }

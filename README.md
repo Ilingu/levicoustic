@@ -13,3 +13,8 @@ This repository implements the matrix method used in the publication ["Matrix Me
 The core of this repo is heavely inspired by [slkiser's](https://github.com/slkiser) implementation of the matrix method done in python, it only cover the section II of the paper but is an excellent start to understand how the algorithm works outside of theory.
 
 > [1] S. L. Kiser, Matrix method in Python for acoustic levitation simulations. [Online]. Available: https://github.com/slkiser/acousticLevitation
+
+## Remaining
+
+- add multiple pressure field from multiple transducer
+- add velocity field -> acoustic radiation potential -> radiation force (see paper)

@@ -2,18 +2,39 @@ use ndarray::{Array1, Array2};
 
 use super::*;
 
-// Array indices
-const N: usize = ((2.0 * R) / DISC) as usize;
-const L: usize = ((X_MAX - X_MIN) / DISC) as usize;
-const Z: usize = ((Z_MAX - Z_MIN) / DISC) as usize;
-const M: usize = L * Z;
-
 /// compute the pressure field for each points.
-/// The greater the number of reflections, the more precise the result will be. However it comes at a computational cost
-pub fn compute_pressure_field(nb_of_reflection: u8) -> Array2<Complex<f64>> {
+#[allow(non_snake_case)]
+pub fn compute_pressure_field(
+    simulation_params: impl Into<SimulationParameters>,
+) -> Array2<Complex<f64>> {
+    let SimulationParameters {
+        x_min,
+        x_max,
+        z_min,
+        z_max,
+        nb_of_reflection,
+        disc,
+        radius: R,
+        transducer_area,
+        hole_area,
+        u_0,
+        reflector_area,
+        omega,
+        wavenumber,
+        e,
+        d,
+        ..
+    }: SimulationParameters = simulation_params.into();
+
+    // Array indices
+    let N: usize = ((2.0 * R) / disc) as usize;
+    let L: usize = ((x_max - x_min) / disc) as usize;
+    let Z: usize = ((z_max - z_min) / disc) as usize;
+    let M: usize = L * Z;
+
     // Creation of grid, indices, and distance arrays
-    let x: Array1<f64> = Array1::linspace(X_MIN, X_MAX, L);
-    let z: Array1<f64> = Array1::linspace(Z_MIN, Z_MAX, Z);
+    let x: Array1<f64> = Array1::linspace(x_min, x_max, L);
+    let z: Array1<f64> = Array1::linspace(z_min, z_max, Z);
     let transducer: Array1<f64> = Array1::linspace(-R, R, N);
 
     // Create zeroed distance arrays in memory
@@ -26,7 +47,7 @@ pub fn compute_pressure_field(nb_of_reflection: u8) -> Array2<Complex<f64>> {
         let mut q = 0;
         for j in 0..L {
             for k in 0..Z {
-                r_nm[[i, q]] = ((transducer[i] - x[j]).powi(2) + (Z_MAX - z[k]).powi(2)).sqrt();
+                r_nm[[i, q]] = ((transducer[i] - x[j]).powi(2) + (z_max - z[k]).powi(2)).sqrt();
                 q += 1;
             }
         }
@@ -37,7 +58,7 @@ pub fn compute_pressure_field(nb_of_reflection: u8) -> Array2<Complex<f64>> {
         let mut q = 0;
         for j in 0..L {
             for k in 0..Z {
-                r_im[[i, q]] = ((x[i] - x[j]).powi(2) + (Z_MIN - z[k]).powi(2)).sqrt();
+                r_im[[i, q]] = ((x[i] - x[j]).powi(2) + (z_min - z[k]).powi(2)).sqrt();
                 q += 1;
             }
         }
@@ -46,7 +67,7 @@ pub fn compute_pressure_field(nb_of_reflection: u8) -> Array2<Complex<f64>> {
     // Calculate distance array r_in
     for i in 0..N {
         for j in 0..L {
-            r_in[[i, j]] = ((transducer[i] - x[j]).powi(2) + (Z_MAX - Z_MIN).powi(2)).sqrt();
+            r_in[[i, j]] = ((transducer[i] - x[j]).powi(2) + (z_max - z_min).powi(2)).sqrt();
         }
     }
 
@@ -54,9 +75,9 @@ pub fn compute_pressure_field(nb_of_reflection: u8) -> Array2<Complex<f64>> {
 
     // Creation of cell discretization and transfer matrices calculations
     let cells: Complex<f64> = Complex::new(100.0, 0.0); // Number of discrete cells
-    let sn = TRANSDUCER_AREA / cells; // Unit cell area for transducer
-    let si = REFLECTOR_AREA / (cells * 4.0); // Unit cell area for reflector
-    let sh = HOLE_AREA / cells; // Unit cell area for transducer hole
+    let sn = transducer_area / cells; // Unit cell area for transducer
+    let si = reflector_area / (cells * 4.0); // Unit cell area for reflector
+    let sh = hole_area / cells; // Unit cell area for transducer hole
 
     // Create zeroed transfer matrices in memory
     let mut t_tm: Array2<Complex<f64>> = Array2::zeros((N, M));
@@ -69,18 +90,18 @@ pub fn compute_pressure_field(nb_of_reflection: u8) -> Array2<Complex<f64>> {
 
     for i in 0..N {
         for j in 0..M {
-            t_tm[[i, j]] = ((sn * (-I * WAVENUMBER * r_nm[[i, j]]).exp()) / r_nm[[i, j]])
-                - ((sh * (-I * WAVENUMBER * r_nm[[i, j]]).exp()) / r_nm[[i, j]]);
+            t_tm[[i, j]] = ((sn * (-I * wavenumber * r_nm[[i, j]]).exp()) / r_nm[[i, j]])
+                - ((sh * (-I * wavenumber * r_nm[[i, j]]).exp()) / r_nm[[i, j]]);
         }
         for k in 0..L {
-            t_tr[[i, k]] = ((sn * (-I * WAVENUMBER * r_in[[i, k]]).exp()) / r_in[[i, k]])
-                - ((sh * (-I * WAVENUMBER * r_in[[i, k]]).exp()) / r_in[[i, k]])
+            t_tr[[i, k]] = ((sn * (-I * wavenumber * r_in[[i, k]]).exp()) / r_in[[i, k]])
+                - ((sh * (-I * wavenumber * r_in[[i, k]]).exp()) / r_in[[i, k]])
         }
     }
 
     for i in 0..L {
         for j in 0..N {
-            t_rt[[i, j]] = (si * (-I * WAVENUMBER * r_ni[[i, j]]).exp()) / r_ni[[i, j]]
+            t_rt[[i, j]] = (si * (-I * wavenumber * r_ni[[i, j]]).exp()) / r_ni[[i, j]]
         }
     }
 
@@ -89,7 +110,7 @@ pub fn compute_pressure_field(nb_of_reflection: u8) -> Array2<Complex<f64>> {
             if r_im[[i, j]] == 0.0 {
                 continue;
             }
-            t_rm[[i, j]] = (si * (-I * WAVENUMBER * r_im[[i, j]]).exp()) / r_im[[i, j]]
+            t_rm[[i, j]] = (si * (-I * wavenumber * r_im[[i, j]]).exp()) / r_im[[i, j]]
         }
     }
 
@@ -103,14 +124,14 @@ pub fn compute_pressure_field(nb_of_reflection: u8) -> Array2<Complex<f64>> {
     #[allow(non_snake_case)]
     let mut U: Array2<Complex<f64>> = Array2::zeros((N, 1));
     for i in 0..N {
-        U[[i, 0]] = U_0 * (I * OMEGA).exp()
+        U[[i, 0]] = u_0 * (I * omega).exp()
     }
 
     // Calculation of pressure, where each line is an order of approximation
-    let mut pressure_base = D * t_tm.dot(&U);
+    let mut pressure_base = d * t_tm.dot(&U);
     for n in 1..=nb_of_reflection {
         pressure_base = pressure_base
-            + (D * E.powu(n as u32)) * nth_reflection(n, [&t_tm, &t_tr, &t_rt, &t_rm, &U]);
+            + (d * e.powu(n as u32)) * nth_reflection(n, [&t_tm, &t_tr, &t_rt, &t_rm, &U]);
     }
 
     pressure_base
