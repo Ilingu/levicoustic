@@ -1,3 +1,4 @@
+pub mod potential_field;
 pub mod pressure_field;
 use ndarray::Array2;
 
@@ -6,7 +7,8 @@ use std::f64::consts::PI;
 
 /* CONSTANT DEFINITION */
 
-const MM: f64 = 1e-3;
+pub const MM: f64 = 1e-3;
+const I: Complex<f64> = Complex::I;
 
 // Define air constants at 20°C (https://en.wikipedia.org/wiki/Density_of_air)
 // const RHO: Complex<f64> = Complex::new(1.2041, 0.0); // Density of air in Raleigh, kg/m^3
@@ -90,7 +92,8 @@ impl From<SimulationParametersArgs> for SimulationParameters {
     }
 }
 
-struct SimulationParameters {
+#[derive(Debug, Clone)]
+pub struct SimulationParameters {
     // Grid dimensions
     x_min: f64,
     x_max: f64,

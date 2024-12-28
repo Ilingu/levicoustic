@@ -86,8 +86,6 @@ pub fn compute_pressure_field(
     let mut t_rm: Array2<Complex<f64>> = Array2::zeros((L, M));
 
     // Calculate transfer matrices
-    const I: Complex<f64> = Complex::I;
-
     for i in 0..N {
         for j in 0..M {
             t_tm[[i, j]] = ((sn * (-I * wavenumber * r_nm[[i, j]]).exp()) / r_nm[[i, j]])
