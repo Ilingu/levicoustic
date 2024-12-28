@@ -20,8 +20,24 @@ pub fn plot_pressure_field(
 
 /* UTILS */
 fn pressure_field_levels(pressure: &Array2<Complex<f64>>, saturation: f64) -> (f64, f64) {
-    let min_pressure = pressure.iter().fold(f64::INFINITY, |min, &p| min.min(p.re));
-    (min_pressure / saturation, -min_pressure / saturation)
+    let (min_pressure, max_pressure) = pressure
+        .iter()
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(min, max), &p| {
+            (min.min(p.re), max.max(p.re))
+        });
+
+    return (-0.0004, 0.0004);
+    if min_pressure.abs() >= max_pressure.abs() {
+        (
+            -max_pressure.abs() / saturation,
+            max_pressure.abs() / saturation,
+        )
+    } else {
+        (
+            -min_pressure.abs() / saturation,
+            min_pressure.abs() / saturation,
+        )
+    }
 }
 
 /* HELPERS */
