@@ -12,8 +12,12 @@ pub fn plot_field(
     simulation_parameters: SimulationParametersArgs,
     save_path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    draw_field(field_info, simulation_parameters, (zoom, saturation))?;
-    draw_field_color_map(field_info, saturation)?;
+    draw_field(
+        field_info,
+        simulation_parameters,
+        (zoom.clone(), saturation),
+    )?;
+    draw_field_color_map(field_info, (zoom, saturation))?;
     post_processing(save_path)?;
     Ok(())
 }
@@ -75,8 +79,8 @@ fn draw_field(
     for row_id in 0..ph {
         for col_id in 0..pw {
             let (x, z) = (
-                x_min + (col_id as f64) * (x_max - x_min) / pw as f64,
-                z_min + (row_id as f64) * (z_max - z_min) / ph as f64,
+                x_min + (col_id as f64) * (x_max - x_min) / (pw - 1) as f64,
+                z_min + (row_id as f64) * (z_max - z_min) / (ph - 1) as f64,
             );
 
             // if data point doesn't exist, take the nearest one
@@ -105,9 +109,13 @@ fn draw_field(
 
 fn draw_field_color_map(
     (field, field_type): (&Field, FieldType),
-    saturation: f64,
+    (zoom, saturation): (Option<Range<f64>>, f64),
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let (minlvl, maxlvl) = best_field_zoom(field, saturation);
+    // min max of the field zoom, aka where I want to watch the field
+    let (minlvl, maxlvl) = match zoom {
+        Some(range) => (range.start, range.end),
+        None => best_field_zoom(field, saturation),
+    };
 
     let root = BitMapBackend::new(TMP_COLORMAP_PATH, (150, 600)).into_drawing_area();
     root.fill(&WHITE)?;

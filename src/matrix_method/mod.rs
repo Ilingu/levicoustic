@@ -161,7 +161,7 @@ impl Default for SimulationParametersArgs {
             z_min: 0.0 * MM,
             z_max: 50.0 * MM,
             nb_of_reflection: 4,
-            disc: 0.5 * MM,
+            disc: 0.25 * MM,
             radius: 15.0 * MM,
             hole_radius: 2.0 * MM,
             freq: Complex::new(56000.0, 0.0),
