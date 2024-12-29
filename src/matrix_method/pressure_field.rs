@@ -4,9 +4,7 @@ use super::*;
 
 /// compute the pressure field for each points.
 #[allow(non_snake_case)]
-pub fn compute_pressure_field(
-    simulation_params: impl Into<SimulationParameters>,
-) -> Array2<Complex<f64>> {
+pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>) -> Field {
     let SimulationParameters {
         x_min,
         x_max,

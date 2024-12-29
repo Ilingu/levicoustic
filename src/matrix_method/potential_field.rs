@@ -5,20 +5,14 @@ use num_complex::Complex;
 
 use crate::matrix_method::C;
 
-use super::{SimulationParameters, I, RHO};
+use super::{Field, SimulationParameters, I, RHO};
 
-fn velocity_potential(
-    pressure: &Array2<Complex<f64>>,
-    sp: impl Into<SimulationParameters>,
-) -> Array2<Complex<f64>> {
+fn velocity_potential(pressure: &Field, sp: impl Into<SimulationParameters>) -> Field {
     let sp: SimulationParameters = sp.into();
     pressure.map(|p| -p / (I * sp.omega * RHO))
 }
 
-pub fn velocity_field(
-    pressure: &Array2<Complex<f64>>,
-    sp: impl Into<SimulationParameters>,
-) -> (Array2<Complex<f64>>, Array2<Complex<f64>>) {
+pub fn velocity_field(pressure: &Field, sp: impl Into<SimulationParameters>) -> (Field, Field) {
     let sp: SimulationParameters = sp.into();
     let velocity_potential = velocity_potential(pressure, sp.clone());
     // compute the gradient of the velocity potential
@@ -101,11 +95,12 @@ pub fn velocity_field(
     (vf_x, vf_z)
 }
 
+/// The output type is a complex field BUT the field itself is 100% real
 pub fn acoustic_radiation_potential(
-    pressure: &Array2<Complex<f64>>,
+    pressure: &Field,
     sp: impl Into<SimulationParameters>,
     sphere_radius: Option<f64>,
-) -> Array2<f64> {
+) -> Field {
     let vf = velocity_field(pressure, sp);
     assert_eq!(pressure.shape(), vf.0.shape());
 
@@ -128,7 +123,9 @@ pub fn acoustic_radiation_potential(
     }
 
     match sphere_radius {
-        Some(r) => relative_acoustic_potential.map(|ap| 2.0 * PI * r.powi(3) * ap),
-        None => relative_acoustic_potential,
+        Some(r) => {
+            relative_acoustic_potential.map(|ap| Complex::new(2.0 * PI * r.powi(3) * ap, 0.0))
+        }
+        None => relative_acoustic_potential.map(|ap| Complex::new(*ap, 0.0)),
     }
 }

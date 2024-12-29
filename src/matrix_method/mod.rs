@@ -3,7 +3,38 @@ pub mod pressure_field;
 use ndarray::Array2;
 
 use num_complex::Complex;
-use std::f64::consts::PI;
+use std::{f64::consts::PI, fmt::Display};
+
+pub type Field = Array2<Complex<f64>>;
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+pub enum FieldType {
+    Pressure,
+    Velocity,
+    RadiationPotential,
+}
+
+impl FieldType {
+    pub fn to_unit(self) -> String {
+        match self {
+            FieldType::Pressure => "Acoustic pressure (Pa)",
+            FieldType::Velocity => "Velocity (m/s)",
+            FieldType::RadiationPotential => "Relative acoutic potential (N/m²)",
+        }
+        .to_string()
+    }
+}
+
+impl Display for FieldType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FieldType::Pressure => write!(f, "Pressure field"),
+            FieldType::Velocity => write!(f, "Velocity field"),
+            FieldType::RadiationPotential => write!(f, "Acoustic radiation potential"),
+        }
+    }
+}
 
 /* CONSTANT DEFINITION */
 
@@ -43,9 +74,6 @@ pub struct SimulationParametersArgs {
     pub freq: Complex<f64>,
     /// Displacement amplitude, m          
     pub u_0: f64,
-
-    // plot
-    pub saturation: f64,
 }
 
 impl From<SimulationParametersArgs> for SimulationParameters {
@@ -138,7 +166,6 @@ impl Default for SimulationParametersArgs {
             hole_radius: 2.0 * MM,
             freq: Complex::new(56000.0, 0.0),
             u_0: 0.0000060,
-            saturation: 4.0,
         }
     }
 }

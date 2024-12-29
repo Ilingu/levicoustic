@@ -1,61 +1,42 @@
-use std::fs;
+use std::{fs, ops::Range};
 
 use image::{GenericImageView, ImageReader, RgbaImage};
-use ndarray::{Array1, Array2};
-use num_complex::Complex;
+use ndarray::Array1;
 use plotters::prelude::*;
 
-use crate::matrix_method::SimulationParametersArgs;
+use crate::matrix_method::{Field, FieldType, SimulationParametersArgs};
 
-pub fn plot_pressure_field(
-    pressure: &Array2<Complex<f64>>,
+pub fn plot_field(
+    field_info: (&Field, FieldType),
+    (zoom, saturation): (Option<Range<f64>>, f64),
     simulation_parameters: SimulationParametersArgs,
-    path: &str,
+    save_path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    draw_pressure_field(pressure, simulation_parameters)?;
-    draw_color_map(pressure, simulation_parameters.saturation)?;
-    post_processing(path)?;
+    draw_field(field_info, simulation_parameters, (zoom, saturation))?;
+    draw_field_color_map(field_info, saturation)?;
+    post_processing(save_path)?;
     Ok(())
-}
-
-/* UTILS */
-fn pressure_field_levels(pressure: &Array2<Complex<f64>>, saturation: f64) -> (f64, f64) {
-    let (min_pressure, max_pressure) = pressure
-        .iter()
-        .fold((f64::INFINITY, f64::NEG_INFINITY), |(min, max), &p| {
-            (min.min(p.re), max.max(p.re))
-        });
-
-    return (-0.0004, 0.0004);
-    if min_pressure.abs() >= max_pressure.abs() {
-        (
-            -max_pressure.abs() / saturation,
-            max_pressure.abs() / saturation,
-        )
-    } else {
-        (
-            -min_pressure.abs() / saturation,
-            min_pressure.abs() / saturation,
-        )
-    }
 }
 
 /* HELPERS */
 
-fn draw_pressure_field(
-    pressure: &Array2<Complex<f64>>,
+const TMP_FIELD_PATH: &str = "./tmp/pressure_field.png";
+const TMP_COLORMAP_PATH: &str = "./tmp/colormap.png";
+
+fn draw_field(
+    (field, field_type): (&Field, FieldType),
     SimulationParametersArgs {
         x_min,
         x_max,
         z_min,
         z_max,
-        saturation,
         nb_of_reflection,
         disc,
         ..
     }: SimulationParametersArgs,
+    (zoom, saturation): (Option<Range<f64>>, f64),
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let root = BitMapBackend::new("./tmp/pressure_field.png", (600, 600)).into_drawing_area();
+    let root = BitMapBackend::new(TMP_FIELD_PATH, (600, 600)).into_drawing_area();
     root.fill(&WHITE)?;
 
     let mut chart = ChartBuilder::on(&root)
@@ -63,8 +44,8 @@ fn draw_pressure_field(
         .x_label_area_size(30)
         .y_label_area_size(50)
         .caption(
-            format!("Pressure field - {nb_of_reflection} reflections - discretization = {disc}m"),
-            ("sans-serif", 16),
+            format!("{field_type} - {nb_of_reflection} reflections - discretization = {disc}m"),
+            ("sans-serif", 14),
         )
         .build_cartesian_2d(x_min..x_max, z_min..z_max)?;
 
@@ -79,18 +60,26 @@ fn draw_pressure_field(
     let plotting_area = chart.plotting_area();
     let plta = plotting_area.get_pixel_range();
     let (pw, ph) = (plta.0.end - plta.0.start, plta.1.end - plta.1.start);
-    let (rm, cm) = match *pressure.shape() {
+    let (rm, cm) = match *field.shape() {
         [rm, cm] => (rm, cm),
         _ => panic!(),
     };
 
-    let (minlvl, maxlvl) = pressure_field_levels(pressure, saturation);
+    // min max of the field zoom, aka where I want to watch the field
+    let (minlvl, maxlvl) = match zoom {
+        Some(range) => (range.start, range.end),
+        None => best_field_zoom(field, saturation),
+    };
+
+    // plot
     for row_id in 0..ph {
         for col_id in 0..pw {
             let (x, z) = (
                 x_min + (col_id as f64) * (x_max - x_min) / pw as f64,
                 z_min + (row_id as f64) * (z_max - z_min) / ph as f64,
             );
+
+            // if data point doesn't exist, take the nearest one
             let (mut i, mut j) = (
                 (row_id as f64 * rm as f64 / ph as f64).round() as usize,
                 (col_id as f64 * cm as f64 / pw as f64).round() as usize,
@@ -101,7 +90,7 @@ fn draw_pressure_field(
             if j == cm {
                 j -= 1;
             }
-            let p = pressure[[i, j]];
+            let p = field[[i, j]];
 
             plotting_area.draw_pixel(
                 (x, z),
@@ -114,13 +103,13 @@ fn draw_pressure_field(
     Ok(())
 }
 
-fn draw_color_map(
-    pressure: &Array2<Complex<f64>>,
+fn draw_field_color_map(
+    (field, field_type): (&Field, FieldType),
     saturation: f64,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let (minlvl, maxlvl) = pressure_field_levels(pressure, saturation);
+    let (minlvl, maxlvl) = best_field_zoom(field, saturation);
 
-    let root = BitMapBackend::new("./tmp/colormap.png", (150, 600)).into_drawing_area();
+    let root = BitMapBackend::new(TMP_COLORMAP_PATH, (150, 600)).into_drawing_area();
     root.fill(&WHITE)?;
 
     let mut chart = ChartBuilder::on(&root)
@@ -132,7 +121,7 @@ fn draw_color_map(
         .configure_mesh()
         .disable_mesh()
         .disable_x_axis()
-        .y_desc("Acoustic pressure (Pa)")
+        .y_desc(field_type.to_unit())
         .draw()?;
 
     let rect_points = Array1::linspace(minlvl, maxlvl, 1000);
@@ -155,9 +144,9 @@ fn draw_color_map(
     Ok(())
 }
 
-fn post_processing(path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let pf_img = ImageReader::open("./tmp/pressure_field.png")?.decode()?;
-    let cm_img = ImageReader::open("./tmp/colormap.png")?.decode()?;
+fn post_processing(save_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let pf_img = ImageReader::open(TMP_FIELD_PATH)?.decode()?;
+    let cm_img = ImageReader::open(TMP_COLORMAP_PATH)?.decode()?;
 
     // image processing
     const CROP_BY: u32 = 25;
@@ -184,8 +173,29 @@ fn post_processing(path: &str) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    merged_img.save(path).unwrap();
-    fs::remove_file("./tmp/pressure_field.png")?;
-    fs::remove_file("./tmp/colormap.png")?;
+    merged_img.save(save_path).unwrap();
+    fs::remove_file(TMP_FIELD_PATH)?;
+    fs::remove_file(TMP_COLORMAP_PATH)?;
     Ok(())
+}
+
+/* UTILS */
+fn best_field_zoom(field: &Field, saturation: f64) -> (f64, f64) {
+    let (min_pressure, max_pressure) = field
+        .iter()
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(min, max), &p| {
+            (min.min(p.re), max.max(p.re))
+        });
+
+    if min_pressure.abs() >= max_pressure.abs() {
+        (
+            -max_pressure.abs() / saturation,
+            max_pressure.abs() / saturation,
+        )
+    } else {
+        (
+            -min_pressure.abs() / saturation,
+            min_pressure.abs() / saturation,
+        )
+    }
 }
