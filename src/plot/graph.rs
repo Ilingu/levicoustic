@@ -17,6 +17,8 @@ pub fn graph_field(
         z_max,
         freq,
         sphere_radius,
+        inclination,
+        curvature,
         ..
     } = sp;
 
@@ -74,7 +76,7 @@ pub fn graph_field(
         .draw()?;
 
     // verification
-    if field_type == FieldType::RadiationForce {
+    if field_type == FieldType::RadiationForce && inclination == 0.0 && curvature == 0.0 {
         let k = 2.0 * PI * freq.re / C.re;
         chart.draw_series(LineSeries::new(
             data.iter().map(|&(z, _)| {

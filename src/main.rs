@@ -26,7 +26,7 @@ fn main() {
         hole_radius: 2.0 * MM,
         freq: Complex::new(56000.0, 0.0),
         u_0: 0.0000060,
-        inclination: 0.0,
+        inclination: 17.0,
         curvature: 0.0,
         sphere_radius: 0.1 * MM, // wavelength=6.1mm
     };

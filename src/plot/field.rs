@@ -36,6 +36,7 @@ fn draw_field(
         z_max,
         nb_of_reflection,
         disc,
+        inclination,
         ..
     }: SimulationParametersArgs,
     (zoom, saturation): (Option<Range<f64>>, f64),
@@ -48,7 +49,9 @@ fn draw_field(
         .x_label_area_size(30)
         .y_label_area_size(50)
         .caption(
-            format!("{field_type} - {nb_of_reflection} reflections - discretization = {disc}m"),
+            format!(
+                "{field_type} - {nb_of_reflection} reflections - discretization={disc}m - tilt={inclination:.0}°"
+            ),
             ("sans-serif", 14),
         )
         .build_cartesian_2d(x_min..x_max, z_min..z_max)?;

@@ -1,4 +1,4 @@
-use ndarray::{Array1, Array2};
+use ndarray::{array, Array1, Array2};
 
 use super::*;
 
@@ -18,6 +18,7 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
         transducer_area,
         hole_area,
         u_0,
+        inclination,
         reflector_area,
         omega,
         wavenumber,
@@ -25,6 +26,7 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
         d,
         ..
     }: SimulationParameters = simulation_params.into();
+    let inclination = inclination * PI / 180.0; // convert deg to rad
 
     // Array indices
     let N: usize = ((2.0 * R) / disc) as usize;
@@ -35,7 +37,9 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
     // Creation of grid, indices, and distance arrays
     let x: Array1<f64> = Array1::linspace(x_min, x_max, L);
     let z: Array1<f64> = Array1::linspace(z_min, z_max, Z);
-    let transducer: Array1<f64> = Array1::linspace(-R, R, N);
+    let transducer: Array1<(f64, f64)> = Array1::linspace(-R, R, N)
+        .map(|x| rotation_matrix(inclination).dot(&array![[*x], [0.0]]))
+        .map(|x| (x[[0, 0]], x[[1, 0]] + R * inclination.abs().sin() + z_max));
 
     // Create zeroed distance arrays in memory
     let mut r_nm: Array2<f64> = Array2::zeros((N, M));
@@ -47,7 +51,8 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
         let mut q = 0;
         for j in 0..L {
             for k in 0..Z {
-                r_nm[[i, q]] = ((transducer[i] - x[j]).powi(2) + (z_max - z[k]).powi(2)).sqrt();
+                let (tx, tz) = transducer[i];
+                r_nm[[i, q]] = ((tx - x[j]).powi(2) + (tz - z[k]).powi(2)).sqrt();
                 q += 1;
             }
         }
@@ -67,7 +72,8 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
     // Calculate distance array r_in
     for i in 0..N {
         for j in 0..L {
-            r_in[[i, j]] = ((transducer[i] - x[j]).powi(2) + (z_max - z_min).powi(2)).sqrt();
+            let (tx, tz) = transducer[i];
+            r_in[[i, j]] = ((tx - x[j]).powi(2) + (tz - z_min).powi(2)).sqrt();
         }
     }
 
@@ -137,6 +143,12 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
         .expect("Failed to reshape pressure field")
         .t()
         .to_owned()
+}
+
+/* HELPERS */
+
+fn rotation_matrix(theta: f64) -> Array2<f64> {
+    array![[theta.cos(), -theta.sin()], [theta.sin(), theta.cos()]]
 }
 
 /// list all the transfer matrices necessary for the nth reflection of the wave and return their product
