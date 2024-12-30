@@ -98,11 +98,12 @@ pub fn compute_velocity_field(
     (vf_x, vf_z)
 }
 
+/// compute the relative acoustic radiation potential Ũ in Gor’kov theory
+///
 /// The output type is a complex field BUT the field itself is 100% real
-pub fn compute_acoustic_radiation_field(
+pub fn compute_relative_potential_field(
     pressure: &Field,
     sp: impl Into<SimulationParameters>,
-    sphere_radius: Option<f64>,
 ) -> Field {
     let vf = compute_velocity_field(pressure, sp);
     assert_eq!(pressure.shape(), vf.0.shape());
@@ -146,10 +147,5 @@ pub fn compute_acoustic_radiation_field(
         }
     }
 
-    match sphere_radius {
-        Some(r) => {
-            relative_acoustic_potential.map(|ap| Complex::new(2.0 * PI * r.powi(3) * ap, 0.0))
-        }
-        None => relative_acoustic_potential.map(|ap| Complex::new(*ap, 0.0)),
-    }
+    relative_acoustic_potential.map(|ap| Complex::new(*ap, 0.0))
 }

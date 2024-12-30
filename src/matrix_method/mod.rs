@@ -1,5 +1,6 @@
 pub mod potential_field;
 pub mod pressure_field;
+pub mod radiation_force;
 use ndarray::Array2;
 
 use num_complex::Complex;
@@ -7,12 +8,14 @@ use std::{f64::consts::PI, fmt::Display};
 
 pub type Field = Array2<Complex<f64>>;
 
-#[derive(Clone, Copy)]
+#[allow(dead_code)]
+#[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum FieldType {
     Pressure,
     Velocity,
     RadiationPotential,
+    RadiationForce,
 }
 
 impl FieldType {
@@ -21,6 +24,7 @@ impl FieldType {
             FieldType::Pressure => "Acoustic pressure (Pa)",
             FieldType::Velocity => "Velocity (m/s)",
             FieldType::RadiationPotential => "Relative acoutic potential (N/m²)",
+            FieldType::RadiationForce => "Radiation force (N)",
         }
         .to_string()
     }
@@ -31,7 +35,8 @@ impl Display for FieldType {
         match self {
             FieldType::Pressure => write!(f, "Pressure field"),
             FieldType::Velocity => write!(f, "Velocity field"),
-            FieldType::RadiationPotential => write!(f, "Acoustic radiation potential"),
+            FieldType::RadiationPotential => write!(f, "Relative acoustic radiation potential"),
+            FieldType::RadiationForce => write!(f, "Radiation force"),
         }
     }
 }
@@ -42,11 +47,11 @@ pub const MM: f64 = 1e-3;
 const I: Complex<f64> = Complex::I;
 
 // Define air constants at 20°C (https://en.wikipedia.org/wiki/Density_of_air)
-// const RHO: Complex<f64> = Complex::new(1.2041, 0.0); // Density of air in Raleigh, kg/m^3
-// const C: Complex<f64> = Complex::new(343.21, 0.0); // Speed of sound in air, m/s
+// pub const RHO: Complex<f64> = Complex::new(1.2041, 0.0); // Density of air in Raleigh, kg/m^3
+// pub const C: Complex<f64> = Complex::new(343.21, 0.0); // Speed of sound in air, m/s
 
-const RHO: Complex<f64> = Complex::new(1.214, 0.0); // Density of air in Raleigh, kg/m^3
-const C: Complex<f64> = Complex::new(340.1, 0.0); // Speed of sound in air, m/s
+pub const RHO: Complex<f64> = Complex::new(1.214, 0.0); // Density of air in Raleigh, kg/m^3
+pub const C: Complex<f64> = Complex::new(340.1, 0.0); // Speed of sound in air, m/s
 
 /* Parameters */
 
@@ -74,6 +79,12 @@ pub struct SimulationParametersArgs {
     pub freq: Complex<f64>,
     /// Displacement amplitude, m          
     pub u_0: f64,
+
+    // Ball parameter
+    /// Radius of the a small sphere in the field, m.
+    ///
+    /// **Should be much smaller than the wavelength**
+    pub sphere_radius: f64,
 }
 
 impl From<SimulationParametersArgs> for SimulationParameters {
@@ -161,11 +172,12 @@ impl Default for SimulationParametersArgs {
             z_min: 0.0 * MM,
             z_max: 50.0 * MM,
             nb_of_reflection: 4,
-            disc: 0.25 * MM,
+            disc: 0.4 * MM,
             radius: 15.0 * MM,
             hole_radius: 2.0 * MM,
             freq: Complex::new(56000.0, 0.0),
             u_0: 0.0000060,
+            sphere_radius: 0.1 * MM, // wavelength=6.1mm
         }
     }
 }
@@ -183,4 +195,8 @@ fn multiple_matrix_product(matrices: Vec<&Array2<Complex<f64>>>) -> Array2<Compl
         prod = prod.dot(matrix);
     }
     prod
+}
+
+pub fn u0_from_velocity_amp(velocity_amp: f64, freq: f64) -> f64 {
+    velocity_amp / freq
 }

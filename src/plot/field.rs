@@ -130,6 +130,13 @@ fn draw_field_color_map(
         .disable_mesh()
         .disable_x_axis()
         .y_desc(field_type.to_unit())
+        .y_label_formatter(&|x| {
+            if x.abs() <= 1e-5 && x != &0.0 {
+                format!("{:.2e}", x)
+            } else {
+                format!("{}", x)
+            }
+        })
         .draw()?;
 
     let rect_points = Array1::linspace(minlvl, maxlvl, 1000);

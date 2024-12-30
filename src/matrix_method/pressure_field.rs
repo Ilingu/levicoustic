@@ -2,7 +2,9 @@ use ndarray::{Array1, Array2};
 
 use super::*;
 
-/// compute the pressure field for each points.
+/// compute the pressure field for each points thanks to the matrix method
+///
+/// Output a **complex** field, only the real part of the field correspond to the actual pressure field
 #[allow(non_snake_case)]
 pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>) -> Field {
     let SimulationParameters {
@@ -123,7 +125,7 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
         U[[i, 0]] = u_0 * (I * omega).exp()
     }
 
-    // Calculation of pressure, where each line is an order of approximation
+    // Calculation of pressure, where each reflection is an order of approximation
     let mut pressure_base = d * t_tm.dot(&U);
     for n in 1..=nb_of_reflection {
         pressure_base = pressure_base
@@ -137,6 +139,7 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
         .to_owned()
 }
 
+/// list all the transfer matrices necessary for the nth reflection of the wave and return their product
 fn nth_reflection(n: u8, [tm, tr, rt, rm, u]: [&Array2<Complex<f64>>; 5]) -> Array2<Complex<f64>> {
     let mut list_of_reflection = Vec::with_capacity(n as usize + 2);
     list_of_reflection.push(match n % 2 == 0 {
