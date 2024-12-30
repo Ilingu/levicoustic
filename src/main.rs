@@ -20,14 +20,20 @@ fn main() {
         x_max: 50.0 * MM,
         z_min: 0.0 * MM,
         z_max: 50.0 * MM,
+
         nb_of_reflection: 4,
         disc: 0.4 * MM,
+
+        offset: -30.0 * MM,
         radius: 15.0 * MM,
         hole_radius: 2.0 * MM,
-        freq: Complex::new(56000.0, 0.0),
+        freq: 56000.0,
+        phase: 0.0,
         u_0: 0.0000060,
         inclination: 17.0,
+
         curvature: 0.0,
+
         sphere_radius: 0.1 * MM, // wavelength=6.1mm
     };
     // let simulation_parameters = SimulationParametersArgs::default();

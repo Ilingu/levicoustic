@@ -141,7 +141,7 @@ pub fn compute_relative_potential_field(
             }
             let (pmsa, vmsa) = (p_sum / nb_of_neighbor as f64, v_sum / nb_of_neighbor as f64);
             relative_acoustic_potential[[i, j]] =
-                (pmsa / (3.0 * RHO.re * C.re.powi(2))) - ((RHO.re * vmsa) / 2.0);
+                (pmsa / (3.0 * RHO * C.powi(2))) - ((RHO * vmsa) / 2.0);
         }
     }
 

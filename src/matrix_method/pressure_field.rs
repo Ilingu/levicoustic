@@ -2,7 +2,11 @@ use ndarray::{array, Array1, Array2};
 
 use super::*;
 
-/// compute the pressure field for each points thanks to the matrix method
+pub fn compute_pressure_fields(simulations_params: &[impl Into<SimulationParameters>]) {
+    // t_2tm = t_t1m+t_t2m
+}
+
+/// compute the pressure field for each points thanks to the matrix method - **only for 1 transducer**
 ///
 /// Output a **complex** field, only the real part of the field correspond to the actual pressure field
 #[allow(non_snake_case)]
@@ -12,21 +16,28 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
         x_max,
         z_min,
         z_max,
+
         nb_of_reflection,
         disc,
+
+        offset,
         radius: R,
         transducer_area,
         hole_area,
+        phase,
         u_0,
         inclination,
+
         reflector_area,
+
         omega,
         wavenumber,
         e,
         d,
         ..
     }: SimulationParameters = simulation_params.into();
-    let inclination = inclination * PI / 180.0; // convert deg to rad
+    // convert deg to rad
+    let (inclination, phase) = (inclination.to_radians(), phase.to_radians());
 
     // Array indices
     let N: usize = ((2.0 * R) / disc) as usize;
@@ -39,7 +50,12 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
     let z: Array1<f64> = Array1::linspace(z_min, z_max, Z);
     let transducer: Array1<(f64, f64)> = Array1::linspace(-R, R, N)
         .map(|x| rotation_matrix(inclination).dot(&array![[*x], [0.0]]))
-        .map(|x| (x[[0, 0]], x[[1, 0]] + R * inclination.abs().sin() + z_max));
+        .map(|x| {
+            (
+                x[[0, 0]] + offset,
+                x[[1, 0]] + R * inclination.abs().sin() + z_max,
+            )
+        });
 
     // Create zeroed distance arrays in memory
     let mut r_nm: Array2<f64> = Array2::zeros((N, M));
@@ -128,11 +144,11 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
     #[allow(non_snake_case)]
     let mut U: Array2<Complex<f64>> = Array2::zeros((N, 1));
     for i in 0..N {
-        U[[i, 0]] = u_0 * (I * omega).exp()
+        U[[i, 0]] = u_0 * (I * (omega + phase)).exp()
     }
 
     // Calculation of pressure, where each reflection is an order of approximation
-    let mut pressure_base = d * t_tm.dot(&U);
+    let mut pressure_base = Complex::new(d, 0.0) * t_tm.dot(&U);
     for n in 1..=nb_of_reflection {
         pressure_base = pressure_base
             + (d * e.powu(n as u32)) * nth_reflection(n, [&t_tm, &t_tr, &t_rt, &t_rm, &U]);

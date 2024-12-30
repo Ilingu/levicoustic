@@ -47,11 +47,11 @@ pub const MM: f64 = 1e-3;
 const I: Complex<f64> = Complex::I;
 
 // Define air constants at 20°C (https://en.wikipedia.org/wiki/Density_of_air)
-// pub const RHO: Complex<f64> = Complex::new(1.2041, 0.0); // Density of air in Raleigh, kg/m^3
-// pub const C: Complex<f64> = Complex::new(343.21, 0.0); // Speed of sound in air, m/s
+// pub const RHO: f64 = 1.2041; // Density of air in Raleigh, kg/m^3
+// pub const C: f64 = 343.21; // Speed of sound in air, m/s
 
-pub const RHO: Complex<f64> = Complex::new(1.214, 0.0); // Density of air in Raleigh, kg/m^3
-pub const C: Complex<f64> = Complex::new(340.1, 0.0); // Speed of sound in air, m/s
+pub const RHO: f64 = 1.214; // Density of air in Raleigh, kg/m^3
+pub const C: f64 = 340.1; // Speed of sound in air, m/s
 
 /* Parameters */
 
@@ -71,12 +71,16 @@ pub struct SimulationParametersArgs {
     pub disc: f64,
 
     // Transducer parameters
+    /// Transducer offset on x-axis, m
+    pub offset: f64,
     /// Transducer radius, m
     pub radius: f64,
     /// Transducer hole, m
     pub hole_radius: f64,
     /// Resonante Frequency, Hz
-    pub freq: Complex<f64>,
+    pub freq: f64,
+    /// Transducer phase offset, degree
+    pub phase: f64,
     /// Displacement amplitude, m          
     pub u_0: f64,
     /// Transducer tilt, deg
@@ -100,13 +104,18 @@ impl From<SimulationParametersArgs> for SimulationParameters {
             x_max,
             z_min,
             z_max,
+
             nb_of_reflection,
             disc,
+
+            offset,
             radius,
             hole_radius,
             freq,
+            phase,
             u_0,
             inclination,
+
             curvature,
             ..
         }: SimulationParametersArgs,
@@ -116,27 +125,33 @@ impl From<SimulationParametersArgs> for SimulationParameters {
             x_max,
             z_min,
             z_max,
+
             nb_of_reflection,
             disc,
+
+            offset,
             radius,
-            transducer_area: Complex::new(PI * radius * radius, 0.0),
+            transducer_area: PI * radius * radius,
             hole_radius,
-            hole_area: Complex::new(PI * hole_radius * hole_radius, 0.0),
+            hole_area: PI * hole_radius * hole_radius,
             freq,
+            phase,
             u_0,
             inclination,
-            reflector_area: Complex::new(PI * ((x_max * x_max) / 4.0), 0.0),
+
+            reflector_area: PI * ((x_max * x_max) / 4.0),
             curvature,
-            wavelength: Complex::new(C.re / freq.re, 0.0),
-            omega: Complex::new(2.0 * PI * freq.re, 0.0),
+
+            wavelength: C / freq,
+            omega: 2.0 * PI * freq,
             // to be computed
-            wavenumber: Complex::ZERO,
+            wavenumber: 0.0,
             e: Complex::ZERO,
-            d: Complex::ZERO,
+            d: 0.0,
         };
-        sp.wavenumber = Complex::new(sp.omega.re / C.re, 0.0);
-        sp.e = Complex::new(0.0, 1.0 / sp.wavelength.re);
-        sp.d = Complex::new((sp.omega.re * RHO.re * C.re) / sp.wavelength.re, 0.0);
+        sp.wavenumber = sp.omega / C;
+        sp.e = Complex::new(0.0, 1.0 / sp.wavelength);
+        sp.d = (sp.omega * RHO * C) / sp.wavelength;
         sp
     }
 }
@@ -155,24 +170,26 @@ pub struct SimulationParameters {
     disc: f64, // Discretization step size, m
 
     // Transducer parameters
-    radius: f64,                   // Transducer radius, m
-    transducer_area: Complex<f64>, // Transducer area, m^2
-    hole_radius: f64,              // Transducer hole, m
-    hole_area: Complex<f64>,       // Transducer hole area, m^2
-    freq: Complex<f64>,            // Resonante Frequency, Hz
-    u_0: f64,                      // Displacement amplitude, m
-    inclination: f64,              // Transducer tilt, deg
+    offset: f64,          // Transducer offset on x-axis, m
+    radius: f64,          // Transducer radius, m
+    transducer_area: f64, // Transducer area, m^2
+    hole_radius: f64,     // Transducer hole, m
+    hole_area: f64,       // Transducer hole area, m^2
+    freq: f64,            // Resonante Frequency, Hz
+    phase: f64,           // Transducer phase offset, degree
+    u_0: f64,             // Displacement amplitude, m
+    inclination: f64,     // Transducer tilt, degree
 
     // Reflector parameters
-    reflector_area: Complex<f64>,
+    reflector_area: f64,
     curvature: f64, // Reflector curvature radius, m. **NOT IMPLEMENTED YET**
 
     // Other computed constants
-    wavelength: Complex<f64>, // Wavelength, m
-    omega: Complex<f64>,      // Angular frequency, rad/s
-    wavenumber: Complex<f64>, // Wavenumber - k
-    e: Complex<f64>,          // Constant used for reflected waves
-    d: Complex<f64>,          // Constant used for transmitted wave
+    wavelength: f64, // Wavelength, m
+    omega: f64,      // Angular frequency, rad/s
+    wavenumber: f64, // Wavenumber - k
+    e: Complex<f64>, // Constant used for reflected waves
+    d: f64,          // Constant used for transmitted wave
 }
 
 /* DEFAULT SIMULATION */
@@ -184,14 +201,20 @@ impl Default for SimulationParametersArgs {
             x_max: 50.0 * MM,
             z_min: 0.0 * MM,
             z_max: 50.0 * MM,
+
             nb_of_reflection: 4,
             disc: 0.4 * MM,
+
+            offset: 0.0 * MM,
             radius: 15.0 * MM,
             hole_radius: 2.0 * MM,
-            freq: Complex::new(56000.0, 0.0),
+            freq: 56000.0,
+            phase: 0.0,
             u_0: 0.0000060,
             inclination: 0.0,
+
             curvature: 0.0,
+
             sphere_radius: 0.1 * MM, // wavelength=6.1mm
         }
     }

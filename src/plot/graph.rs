@@ -77,13 +77,13 @@ pub fn graph_field(
 
     // verification
     if field_type == FieldType::RadiationForce && inclination == 0.0 && curvature == 0.0 {
-        let k = 2.0 * PI * freq.re / C.re;
+        let k = 2.0 * PI * freq / C;
         chart.draw_series(LineSeries::new(
             data.iter().map(|&(z, _)| {
                 (
                     z,
                     (5.0 * PI * sphere_radius.powi(3) * k * 2200_f64.powi(2)
-                        / (6.0 * RHO.re * C.re.powi(2)))
+                        / (6.0 * RHO * C.powi(2)))
                         * (2.0 * k * z).sin(),
                 )
             }),

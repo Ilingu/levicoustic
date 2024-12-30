@@ -23,5 +23,4 @@ The core of this repo is heavely inspired by [slkiser's](https://github.com/slki
 
 ## Remaining
 
-- add multiple pressure field from multiple transducer + tilt
-- reflector curvature
+- add multiple pressure field from multiple transducer
