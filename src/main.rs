@@ -2,8 +2,7 @@ use std::fs;
 
 use matrix_method::{
     potential_field::compute_relative_potential_field, pressure_field::compute_pressure_field,
-    radiation_force::compute_radiation_force_field, u0_from_velocity_amp, FieldType,
-    SimulationParametersArgs, MM,
+    radiation_force::compute_radiation_force_field, FieldType, SimulationParametersArgs, MM,
 };
 use num_complex::Complex;
 use plot::{field::plot_field, graph::graph_field};
@@ -27,6 +26,8 @@ fn main() {
         hole_radius: 2.0 * MM,
         freq: Complex::new(56000.0, 0.0),
         u_0: 0.0000060,
+        inclination: 0.0,
+        curvature: 0.0,
         sphere_radius: 0.1 * MM, // wavelength=6.1mm
     };
     // let simulation_parameters = SimulationParametersArgs::default();

@@ -79,6 +79,12 @@ pub struct SimulationParametersArgs {
     pub freq: Complex<f64>,
     /// Displacement amplitude, m          
     pub u_0: f64,
+    /// Transducer tilt, deg
+    pub inclination: f64,
+
+    // Reflector parameters
+    /// Reflector curvature radius, m. **NOT IMPLEMENTED YET**
+    pub curvature: f64,
 
     // Ball parameter
     /// Radius of the a small sphere in the field, m.
@@ -100,6 +106,8 @@ impl From<SimulationParametersArgs> for SimulationParameters {
             hole_radius,
             freq,
             u_0,
+            inclination,
+            curvature,
             ..
         }: SimulationParametersArgs,
     ) -> Self {
@@ -116,7 +124,9 @@ impl From<SimulationParametersArgs> for SimulationParameters {
             hole_area: Complex::new(PI * hole_radius * hole_radius, 0.0),
             freq,
             u_0,
+            inclination,
             reflector_area: Complex::new(PI * ((x_max * x_max) / 4.0), 0.0),
+            curvature,
             wavelength: Complex::new(C.re / freq.re, 0.0),
             omega: Complex::new(2.0 * PI * freq.re, 0.0),
             // to be computed
@@ -131,6 +141,7 @@ impl From<SimulationParametersArgs> for SimulationParameters {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct SimulationParameters {
     // Grid dimensions
@@ -150,9 +161,11 @@ pub struct SimulationParameters {
     hole_area: Complex<f64>,       // Transducer hole area, m^2
     freq: Complex<f64>,            // Resonante Frequency, Hz
     u_0: f64,                      // Displacement amplitude, m
+    inclination: f64,              // Transducer tilt, deg
 
     // Reflector parameters
     reflector_area: Complex<f64>,
+    curvature: f64, // Reflector curvature radius, m. **NOT IMPLEMENTED YET**
 
     // Other computed constants
     wavelength: Complex<f64>, // Wavelength, m
@@ -177,6 +190,8 @@ impl Default for SimulationParametersArgs {
             hole_radius: 2.0 * MM,
             freq: Complex::new(56000.0, 0.0),
             u_0: 0.0000060,
+            inclination: 0.0,
+            curvature: 0.0,
             sphere_radius: 0.1 * MM, // wavelength=6.1mm
         }
     }
@@ -197,6 +212,7 @@ fn multiple_matrix_product(matrices: Vec<&Array2<Complex<f64>>>) -> Array2<Compl
     prod
 }
 
+#[allow(dead_code)]
 pub fn u0_from_velocity_amp(velocity_amp: f64, freq: f64) -> f64 {
     velocity_amp / freq
 }
