@@ -7,7 +7,7 @@ use crate::matrix_method::{Field, FieldType, SimulationParametersArgs, C, RHO};
 pub fn graph_field(
     (field, field_type): (&Field, FieldType),
     (at_x, cut): (f64, Option<f64>),
-    sp: SimulationParametersArgs,
+    (sp, multiple_simulation): (SimulationParametersArgs, bool),
     path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let SimulationParametersArgs {
@@ -17,8 +17,6 @@ pub fn graph_field(
         z_max,
         freq,
         sphere_radius,
-        inclination,
-        curvature,
         ..
     } = sp;
 
@@ -76,7 +74,7 @@ pub fn graph_field(
         .draw()?;
 
     // verification
-    if field_type == FieldType::RadiationForce && inclination == 0.0 && curvature == 0.0 {
+    if field_type == FieldType::RadiationForce && !multiple_simulation {
         let k = 2.0 * PI * freq / C;
         chart.draw_series(LineSeries::new(
             data.iter().map(|&(z, _)| {

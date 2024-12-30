@@ -9,12 +9,12 @@ use crate::matrix_method::{Field, FieldType, SimulationParametersArgs};
 pub fn plot_field(
     field_info: (&Field, FieldType),
     (zoom, saturation): (Option<Range<f64>>, f64),
-    simulation_parameters: SimulationParametersArgs,
+    (simulation_parameters, multiple_simulation): (SimulationParametersArgs, bool),
     save_path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     draw_field(
         field_info,
-        simulation_parameters,
+        (simulation_parameters, multiple_simulation),
         (zoom.clone(), saturation),
     )?;
     draw_field_color_map(field_info, (zoom, saturation))?;
@@ -29,16 +29,19 @@ const TMP_COLORMAP_PATH: &str = "./tmp/colormap.png";
 
 fn draw_field(
     (field, field_type): (&Field, FieldType),
-    SimulationParametersArgs {
-        x_min,
-        x_max,
-        z_min,
-        z_max,
-        nb_of_reflection,
-        disc,
-        inclination,
-        ..
-    }: SimulationParametersArgs,
+    (
+        SimulationParametersArgs {
+            x_min,
+            x_max,
+            z_min,
+            z_max,
+            nb_reflection,
+            disc,
+            inclination,
+            ..
+        },
+        multiple_simulation,
+    ): (SimulationParametersArgs, bool),
     (zoom, saturation): (Option<Range<f64>>, f64),
 ) -> Result<(), Box<dyn std::error::Error>> {
     let root = BitMapBackend::new(TMP_FIELD_PATH, (600, 600)).into_drawing_area();
@@ -50,7 +53,12 @@ fn draw_field(
         .y_label_area_size(50)
         .caption(
             format!(
-                "{field_type} - {nb_of_reflection} reflections - discretization={disc}m - tilt={inclination:.0}°"
+                "{field_type} - {nb_reflection} reflections - discretization={disc}m{}",
+                if multiple_simulation {
+                    "".to_string()
+                } else {
+                    format!(" - tilt={inclination:.0}°")
+                }
             ),
             ("sans-serif", 14),
         )

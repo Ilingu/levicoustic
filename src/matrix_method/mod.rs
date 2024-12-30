@@ -66,7 +66,7 @@ pub struct SimulationParametersArgs {
     pub z_max: f64,
 
     // Simulation accuracy
-    pub nb_of_reflection: u8,
+    pub nb_reflection: u8,
     /// Discretization step size, m
     pub disc: f64,
 
@@ -86,10 +86,6 @@ pub struct SimulationParametersArgs {
     /// Transducer tilt, deg
     pub inclination: f64,
 
-    // Reflector parameters
-    /// Reflector curvature radius, m. **NOT IMPLEMENTED YET**
-    pub curvature: f64,
-
     // Ball parameter
     /// Radius of the a small sphere in the field, m.
     ///
@@ -105,7 +101,7 @@ impl From<SimulationParametersArgs> for SimulationParameters {
             z_min,
             z_max,
 
-            nb_of_reflection,
+            nb_reflection,
             disc,
 
             offset,
@@ -115,8 +111,6 @@ impl From<SimulationParametersArgs> for SimulationParameters {
             phase,
             u_0,
             inclination,
-
-            curvature,
             ..
         }: SimulationParametersArgs,
     ) -> Self {
@@ -126,7 +120,7 @@ impl From<SimulationParametersArgs> for SimulationParameters {
             z_min,
             z_max,
 
-            nb_of_reflection,
+            nb_reflection,
             disc,
 
             offset,
@@ -140,7 +134,6 @@ impl From<SimulationParametersArgs> for SimulationParameters {
             inclination,
 
             reflector_area: PI * ((x_max * x_max) / 4.0),
-            curvature,
 
             wavelength: C / freq,
             omega: 2.0 * PI * freq,
@@ -166,7 +159,7 @@ pub struct SimulationParameters {
     z_max: f64, // Location of the transducer
 
     // Simulation accuracy
-    nb_of_reflection: u8,
+    nb_reflection: u8,
     disc: f64, // Discretization step size, m
 
     // Transducer parameters
@@ -182,7 +175,6 @@ pub struct SimulationParameters {
 
     // Reflector parameters
     reflector_area: f64,
-    curvature: f64, // Reflector curvature radius, m. **NOT IMPLEMENTED YET**
 
     // Other computed constants
     wavelength: f64, // Wavelength, m
@@ -202,7 +194,7 @@ impl Default for SimulationParametersArgs {
             z_min: 0.0 * MM,
             z_max: 50.0 * MM,
 
-            nb_of_reflection: 4,
+            nb_reflection: 4,
             disc: 0.4 * MM,
 
             offset: 0.0 * MM,
@@ -212,8 +204,6 @@ impl Default for SimulationParametersArgs {
             phase: 0.0,
             u_0: 0.0000060,
             inclination: 0.0,
-
-            curvature: 0.0,
 
             sphere_radius: 0.1 * MM, // wavelength=6.1mm
         }
@@ -233,6 +223,21 @@ fn multiple_matrix_product(matrices: Vec<&Array2<Complex<f64>>>) -> Array2<Compl
         prod = prod.dot(matrix);
     }
     prod
+}
+
+fn add_matrices(matrices: Vec<&Array2<Complex<f64>>>) -> Array2<Complex<f64>> {
+    let mut sum = matrices[0].to_owned();
+    for matrix in matrices.into_iter().skip(1) {
+        sum += matrix;
+    }
+    sum
+}
+fn add_owned_matrices(matrices: Vec<Array2<Complex<f64>>>) -> Array2<Complex<f64>> {
+    let mut sum = matrices[0].to_owned();
+    for matrix in matrices.into_iter().skip(1) {
+        sum += &matrix;
+    }
+    sum
 }
 
 #[allow(dead_code)]
