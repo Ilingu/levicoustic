@@ -16,6 +16,8 @@ pub enum FieldType {
     Velocity,
     RadiationPotential,
     RadiationForce,
+    Intensity,
+    LimitDensity,
 }
 
 impl FieldType {
@@ -25,6 +27,8 @@ impl FieldType {
             FieldType::Velocity => "Velocity (m/s)",
             FieldType::RadiationPotential => "Relative acoutic potential (N/m²)",
             FieldType::RadiationForce => "Radiation force (N)",
+            FieldType::Intensity => "Intensité sonore (W/m²)",
+            FieldType::LimitDensity => "Masse volumique limite (kg/m³)",
         }
         .to_string()
     }
@@ -37,6 +41,8 @@ impl Display for FieldType {
             FieldType::Velocity => write!(f, "Velocity field"),
             FieldType::RadiationPotential => write!(f, "Relative acoustic radiation potential"),
             FieldType::RadiationForce => write!(f, "Radiation force"),
+            FieldType::Intensity => write!(f, "Intensité"),
+            FieldType::LimitDensity => write!(f, "Masse volumique limite"),
         }
     }
 }

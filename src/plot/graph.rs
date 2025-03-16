@@ -4,9 +4,17 @@ use plotters::prelude::*;
 
 use crate::matrix_method::{Field, FieldType, SimulationParametersArgs, C, RHO};
 
+#[derive(Default)]
+pub enum CutOption {
+    #[default]
+    Both,
+    Left,
+    Right,
+}
+
 pub fn graph_field(
     (field, field_type): (&Field, FieldType),
-    (at_x, cut): (f64, Option<f64>),
+    (at_x, cut): (f64, Option<Vec<(f64, CutOption)>>),
     (sp, multiple_simulation): (SimulationParametersArgs, bool),
     path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -20,8 +28,16 @@ pub fn graph_field(
         ..
     } = sp;
 
-    let cut = cut.unwrap_or_default();
-    let (cz_min, cz_max) = (z_min + cut, z_max - cut);
+    let cuts = cut.unwrap_or_default();
+    assert!(cuts.len() <= 2);
+    let (mut cz_min, mut cz_max) = (z_min, z_max);
+    for (cut, cut_where) in cuts {
+        (cz_min, cz_max) = match cut_where {
+            CutOption::Both => (cz_min + cut, cz_max - cut),
+            CutOption::Left => (cz_min + cut, cz_max),
+            CutOption::Right => (cz_min, cz_max - cut),
+        }
+    }
 
     assert!(at_x >= x_min && at_x <= x_max);
 
@@ -65,7 +81,7 @@ pub fn graph_field(
         .x_desc("z (m)")
         .y_desc(field_type.to_unit())
         .y_label_formatter(&|x| {
-            if x.abs() <= 1e-5 && x != &0.0 {
+            if x.abs() <= 1e-4 && x != &0.0 {
                 format!("{:.2e}", x)
             } else {
                 format!("{}", x)

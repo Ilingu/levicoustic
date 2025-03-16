@@ -1,0 +1,32 @@
+  let spg = SimulationParametersArgs {
+        x_min: -50.0 * MM,
+        x_max: 50.0 * MM,
+        z_min: 0.0 * MM,
+        z_max: 40.0 * MM,
+
+        nb_reflection: 4,
+        disc: 0.3 * MM,
+
+        freq: 39430.0,
+        u_0: 0.0000060,
+
+        sphere_radius: 1.0 * MM,
+        ..Default::default()
+    };
+
+    let sp1 = SimulationParametersArgs {
+        offset: -25.0 * MM,
+        radius: 25.0 * MM,
+        hole_radius: 0.0 * MM,
+        phase: 0.0,
+        inclination: 25.0,
+        ..Default::default()
+    };
+    let sp2 = SimulationParametersArgs {
+        offset: 25.0 * MM,
+        radius: 25.0 * MM,
+        hole_radius: 0.0 * MM,
+        phase: 180.0,
+        inclination: -25.0,
+        ..Default::default()
+    };

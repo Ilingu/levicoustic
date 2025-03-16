@@ -1,3 +1,5 @@
+use std::f64::consts::PI;
+
 use ndarray::Array2;
 use num_complex::Complex;
 
@@ -146,4 +148,29 @@ pub fn compute_relative_potential_field(
     }
 
     relative_acoustic_potential.map(|ap| Complex::new(*ap, 0.0))
+}
+
+pub fn compute_sound_intensity(pressure: &Field, sp: impl Into<SimulationParameters>) -> Field {
+    let vf = compute_velocity_field(pressure, sp);
+    assert_eq!(pressure.shape(), vf.0.shape());
+
+    let mut sound_intensity: Array2<f64> = Array2::zeros(pressure.raw_dim());
+    let (row, col) = match *pressure.shape() {
+        [r, c] => (r, c),
+        _ => panic!(),
+    };
+
+    for i in 0..row {
+        for j in 0..col {
+            let v = (vf.0[[i, j]].re.powi(2) + vf.1[[i, j]].re.powi(2)).sqrt();
+            sound_intensity[[i, j]] = pressure[[i, j]].re.abs() * v
+        }
+    }
+    sound_intensity.map(|x| Complex::new(*x, 0.0))
+}
+
+pub fn compute_limit_density(pressure: &Field, sp: impl Into<SimulationParameters>) -> Field {
+    let sp: SimulationParameters = sp.into();
+    let intensity = compute_sound_intensity(pressure, sp.clone());
+    intensity.map(|&i| (10.0 * PI * i) / (C * 9.81 * sp.wavelength))
 }
