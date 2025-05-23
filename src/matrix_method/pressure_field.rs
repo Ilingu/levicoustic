@@ -197,26 +197,35 @@ pub fn compute_pressure_fields(
     add_owned_matrices(pressure_fields) // global pressure field
 }
 
-/// compute the pressure field for each points thanks to the matrix method - **only for 1 transducer**
-///
-/// Output a **complex** field, only the real part of the field correspond to the actual pressure field
+/// Calcul le champ de pression en chaque point grâce à la methode matricielle
+/// Renvoie un champ complexe, seul la partie reel a un sens physique
+/// Version 1 émetteur, généralisation plus longue à coder mais dans le principe
+/// on somme les pressions de chaque émetteur en négligant les réflexion sur les
+/// autres émetteur
+/// Code source entier: https://github.com/Ilingu/levicoustic
 #[allow(non_snake_case)]
 pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>) -> Field {
     let SimulationParameters {
+        // dimensions du probleme
         x_min,
         x_max,
         z_min,
         z_max,
 
+        // nombre de reflection voulu
         nb_reflection,
+        // Taille de chaque cellule
         disc,
 
         offset,
+        // Rayon de l'emetteur
         radius: R,
         transducer_area,
         hole_area,
         phase,
+        // L'amplitude de deplacement des atomes: L = nVd = 10.4nm ici
         u_0,
+        // Eventuelle inclinaison de l'emetteur
         inclination,
 
         reflector_area,
@@ -227,7 +236,7 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
         d,
         ..
     }: SimulationParameters = simulation_params.into();
-    // convert deg to rad
+    // convertie les deg en rad
     let (inclination, phase) = (inclination.to_radians(), phase.to_radians());
 
     // Array indices
@@ -236,7 +245,7 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
     let Z: usize = ((z_max - z_min) / disc) as usize;
     let M: usize = L * Z;
 
-    // Creation of grid, indices, and distance arrays
+    // Création de l'espace, indices, et les matrices de distances
     let x: Array1<f64> = Array1::linspace(x_min, x_max, L);
     let z: Array1<f64> = Array1::linspace(z_min, z_max, Z);
     let transducer: Array1<(f64, f64)> = Array1::linspace(-R, R, N)
@@ -248,12 +257,12 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
             )
         });
 
-    // Create zeroed distance arrays in memory
+    // Initialise les matrices à 0 dans la RAM
     let mut r_nm: Array2<f64> = Array2::zeros((N, M));
     let mut r_im: Array2<f64> = Array2::zeros((L, M));
     let mut r_in: Array2<f64> = Array2::zeros((N, L));
 
-    // Calculate distance array r_nm
+    // Calcul la matrice de distance r_nm
     for i in 0..N {
         let mut q = 0;
         for j in 0..L {
@@ -265,7 +274,7 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
         }
     }
 
-    // Calculate distance array r_im
+    // Calcul la matrice de distance r_im
     for i in 0..L {
         let mut q = 0;
         for j in 0..L {
@@ -276,7 +285,7 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
         }
     }
 
-    // Calculate distance array r_in
+    // Calcul la matrice de distance r_in
     for i in 0..N {
         for j in 0..L {
             let (tx, tz) = transducer[i];
@@ -286,19 +295,19 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
 
     let r_ni = r_in.t();
 
-    // Creation of cell discretization and transfer matrices calculations
-    let cells = 100.0; // Number of discrete cells
+    // Paramètres de discrétisation des cellules et calcul des matrices de tranfère
+    let cells = 100.0; // Nombre de cellule discrète
     let sn = transducer_area / cells; // Unit cell area for transducer
     let si = reflector_area / (cells * 4.0); // Unit cell area for reflector
     let sh = hole_area / cells; // Unit cell area for transducer hole
 
-    // Create zeroed transfer matrices in memory
+    // Initialise les matrice de tranfère à 0 dans la RAM
     let mut t_tm: Array2<Complex<f64>> = Array2::zeros((N, M));
     let mut t_tr: Array2<Complex<f64>> = Array2::zeros((N, L));
     let mut t_rt: Array2<Complex<f64>> = Array2::zeros((L, N));
     let mut t_rm: Array2<Complex<f64>> = Array2::zeros((L, M));
 
-    // Calculate transfer matrices
+    // Calcul les matrices de transfères
     for i in 0..N {
         for j in 0..M {
             t_tm[[i, j]] = ((sn * (-I * wavenumber * r_nm[[i, j]]).exp()) / r_nm[[i, j]])
@@ -325,20 +334,20 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
         }
     }
 
-    // Rotation for column notation
+    // On prend le symetrique de ces matrices pour les avoir en column
     let t_tm = t_tm.t().to_owned();
     let t_tr = t_tr.t().to_owned();
     let t_rt = t_rt.t().to_owned();
     let t_rm = t_rm.t().to_owned();
 
-    // Boundary conditions of transducer
+    // Condition limite au bord de l'émetteur
     #[allow(non_snake_case)]
     let mut U: Array2<Complex<f64>> = Array2::zeros((N, 1));
     for i in 0..N {
         U[[i, 0]] = u_0 * (I * (omega + phase)).exp()
     }
 
-    // Calculation of pressure, where each reflection is an order of approximation
+    // Calcul de la pression grâce à la formule du papier, où chaque réflection est un ordre d'approximation
     let mut pressure_base = Complex::new(d, 0.0) * t_tm.dot(&U);
     for n in 1..=nb_reflection {
         pressure_base = pressure_base
@@ -351,14 +360,12 @@ pub fn compute_pressure_field(simulation_params: impl Into<SimulationParameters>
         .t()
         .to_owned()
 }
-
-/* HELPERS */
-
+/* Fonctions auxiliaires */
 fn rotation_matrix(theta: f64) -> Array2<f64> {
     array![[theta.cos(), -theta.sin()], [theta.sin(), theta.cos()]]
 }
 
-/// list all the transfer matrices necessary for the nth reflection of the wave and return their product
+/// Liste toutes les matrices de transfert nécessaires pour la n-ième réflexion de l'onde et renvoie leur produit
 fn nth_reflection(
     n: u8,
     [tm, tr, rt, rm, u]: [&Array2<Complex<f64>>; 5],

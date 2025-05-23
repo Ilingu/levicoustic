@@ -1,7 +1,9 @@
 use std::fs;
 
 use matrix_method::{
-    potential_field::{compute_limit_density, compute_relative_potential_field},
+    potential_field::{
+        compute_limit_density, compute_relative_potential_field, compute_sound_intensity,
+    },
     pressure_field::{compute_pressure_field, compute_pressure_fields},
     radiation_force::compute_radiation_force_field,
     Field, FieldType, SimulationParametersArgs, MM,
@@ -25,7 +27,7 @@ fn main() {
         z_min: 0.0 * MM,
         z_max: 49.0 * MM,
 
-        nb_reflection: 4,
+        nb_reflection: 0,
         disc: 0.3 * MM,
 
         freq: 28_000.0,
@@ -64,7 +66,7 @@ fn plot_and_graph(pressure: Field, (spg, multiple_simulation): (SimulationParame
     let relative_potential_field = compute_relative_potential_field(&pressure, spg);
     plot_field(
         (&relative_potential_field, FieldType::RadiationPotential),
-        (None, 30.0),
+        (None, 25.0),
         (spg, multiple_simulation),
         "./out/field/acoustic_radiation_potential.png",
     )
@@ -87,6 +89,7 @@ fn plot_and_graph(pressure: Field, (spg, multiple_simulation): (SimulationParame
     )
     .expect("Failed to graph force field");
 
+    return;
     // Density limit plotting
     let density_limit = compute_limit_density(&pressure, spg);
     plot_field(
@@ -95,15 +98,15 @@ fn plot_and_graph(pressure: Field, (spg, multiple_simulation): (SimulationParame
         (spg, multiple_simulation),
         "./out/field/density_limit.png",
     )
-    .expect("Failed to draw force field");
+    .expect("Failed to draw density field");
     graph_field(
         (&density_limit, FieldType::LimitDensity),
         (
             0.01,
-            Some(vec![(0.003, CutOption::Left), (0.03, CutOption::Right)]),
+            Some(vec![(0.003, CutOption::Left), (0.0325, CutOption::Right)]),
         ),
         (spg, multiple_simulation),
         "./out/graph/density_graph.png",
     )
-    .expect("Failed to graph force field");
+    .expect("Failed to graph density");
 }
