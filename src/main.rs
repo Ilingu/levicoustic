@@ -27,7 +27,7 @@ fn main() {
         z_min: 0.0 * MM,
         z_max: 49.0 * MM,
 
-        nb_reflection: 0,
+        nb_reflection: 4,
         disc: 0.3 * MM,
 
         freq: 28_000.0,
